@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แบบฝึกพิมพ์สัมผัสภาษาอังกฤษ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: linear-gradient(135deg,#fff1f2,#eef2ff 45%,#ecfeff 100%);
+    margin: 0;
+    padding: 24px 16px 60px;
+    color: #1e293b;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { text-align:center; font-size: 1.7rem; margin-bottom: 4px; color:#312e81; }
+  .subtitle { text-align:center; color:#64748b; margin-bottom: 20px; font-size:0.95rem; }
+
+  .card {
+    background:#fff; border-radius: 16px; padding: 20px 24px;
+    box-shadow: 0 4px 16px rgba(30,41,59,0.08); margin-bottom: 18px;
+  }
+
+  /* Reference table */
+  table.ref { width:100%; border-collapse: collapse; font-size:0.88rem; }
+  table.ref th, table.ref td { padding:6px 8px; text-align:center; border-bottom:1px solid #e2e8f0; }
+  table.ref th { color:#475569; font-weight:600; }
+  table.ref td.example { text-align:left; color:#475569; font-size:0.84rem; }
+  .badge-shift { background:#eef2ff; color:#4338ca; border-radius:6px; padding:2px 8px; font-weight:600; }
+
+  /* Practice area */
+  .category-label {
+    text-align:center; font-weight:700; font-size:0.95rem; color:#4338ca;
+    background:#eef2ff; border-radius:20px; padding:4px 14px; display:table; margin:0 auto 12px;
+  }
+  .practice-top { display:flex; align-items:center; justify-content:center; }
+  .target-word {
+    font-size: 4rem; font-weight:700; min-width:320px; min-height:190px;
+    padding: 18px 56px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:24px; background:#f1f5f9; color:#312e81;
+    border: 4px solid #c7d2fe; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    letter-spacing: 1px; cursor:text; outline:none;
+  }
+  .target-word:focus { box-shadow:0 0 0 4px rgba(99,102,241,0.25); }
+  .target-word.flash-correct { background:#dcfce7; border-color:#22c55e; }
+  .target-word.flash-wrong { background:#fee2e2; border-color:#ef4444; }
+  .target-word .ch { transition: color .1s ease; position:relative; top:0; }
+  .target-word .ch.typed { color:#16a34a; }
+  .target-word .ch.pending { color:#c7d2fe; }
+  .target-word .ch.current { color:#312e81; }
+  .target-word .ch.current::after {
+    content:''; position:absolute; left:0; right:0; bottom:-8px; height:4px;
+    background:#6366f1; border-radius:2px;
+  }
+  /* Sentence practice box: same coloring logic as .target-word, but a
+     left-aligned wrapping paragraph instead of one big centered word. */
+  .target-text {
+    font-size: 1.5rem; font-weight:600; width:100%; line-height:2.2;
+    padding: 20px 26px;
+    border-radius:24px; background:#f1f5f9; color:#312e81;
+    border: 4px solid #c7d2fe; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    cursor:text; outline:none;
+  }
+  .target-text:focus { box-shadow:0 0 0 4px rgba(99,102,241,0.25); }
+  .target-text.flash-correct { background:#dcfce7; border-color:#22c55e; }
+  .target-text.flash-wrong { background:#fee2e2; border-color:#ef4444; }
+  .target-text .ch { transition: color .1s ease; position:relative; top:0; }
+  .target-text .ch.typed { color:#16a34a; }
+  .target-text .ch.pending { color:#c7d2fe; }
+  .target-text .ch.current { color:#312e81; }
+  .target-text .ch.current::after {
+    content:''; position:absolute; left:0; right:0; bottom:-4px; height:3px;
+    background:#6366f1; border-radius:2px;
+  }
+  .target-text .ch.tone-high { top: -0.34em; }
+  .target-text .ch.shake { animation: shake .3s ease; }
+  /* When a tone mark (่ ้ ๊ ๋) follows an above-base vowel (ั ิ ี ึ ื), the two
+     combining marks are rendered in separate <span> elements so the browser
+     cannot auto-stack them — lift the tone mark higher so it clears the vowel
+     instead of overlapping it. */
+  .target-word .ch.tone-high { top: -0.34em; }
+  .target-word .ch.shake { animation: shake .3s ease; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .msg { min-height: 28px; font-weight:600; text-align:center; margin-top:10px; font-size:1.05rem; }
+  .msg.ok { color:#15803d; }
+  .msg.bad { color:#b91c1c; }
+  .msg.info { color:#64748b; font-weight:500; }
+
+  /* Keyboard */
+  .keyboard { user-select:none; margin-top:22px; }
+  .kb-row { display:flex; justify-content:center; align-items:center; gap:3px; margin-bottom:3px; flex-wrap:wrap; }
+  .key {
+    width:24px; height:24px; border-radius:5px; background:#f8fafc;
+    border:1px solid #cbd5e1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-size:0.55rem;
+    position:relative; transition: all .12s ease; opacity:0.7;
+  }
+  .key .sh { font-size:0.52rem; font-weight:700; color:#334155; }
+  .key .un { font-size:0.4rem; color:#94a3b8; }
+  .shift-key {
+    height:24px; border-radius:5px; border:1px solid #cbd5e1; background:#f8fafc;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.52rem;
+    flex:1; max-width:46px; transition: all .12s ease; margin:0 3px; color:#475569;
+  }
+  .shift-key.required {
+    font-weight:800; transform:scale(1.08);
+    border-color:#4338ca; background:#eef2ff; color:#4338ca;
+    box-shadow:0 0 0 2px rgba(67,56,202,0.3);
+    animation: pulse-shift 1s ease-in-out infinite;
+  }
+  @keyframes pulse-shift {
+    0%,100% { box-shadow:0 0 0 3px rgba(67,56,202,0.3); }
+    50% { box-shadow:0 0 0 7px rgba(67,56,202,0.12); }
+  }
+  .shift-key.held { background:#c7d2fe; }
+  .shift-key.required.held { transform:scale(0.97); animation:none; }
+
+  /* Stats */
+  .stats { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; text-align:center; }
+  .stat { background:#f8fafc; border-radius:12px; padding:10px 18px; min-width:100px; }
+  .stat .num { font-size:1.4rem; font-weight:700; color:#312e81; }
+  .stat .label { font-size:0.8rem; color:#64748b; }
+  .stat.percent .num { color:#0f766e; }
+
+  .btn-restart {
+    display:block; margin:16px auto 0; padding:10px 26px; border:none;
+    border-radius:10px; background:#4338ca; color:#fff; font-family:'Sarabun',sans-serif;
+    font-size:1rem; font-weight:600; cursor:pointer;
+  }
+  .btn-restart:hover { background:#3730a3; }
+
+  .section-gap { margin-top:36px; }
+
+  /* Single-character timed drill (exercise 1) */
+  .timer-badge {
+    text-align:center; font-weight:800; font-size:1.05rem; color:#b45309;
+    background:#fef3c7; border-radius:20px; padding:4px 16px; display:table; margin:0 auto 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .target-char {
+    font-size: 6rem; font-weight:700; min-width:220px; min-height:190px;
+    padding: 18px 40px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:24px; background:#f1f5f9; color:#312e81;
+    border: 4px solid #c7d2fe; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    outline:none; cursor:text;
+  }
+  .target-char:focus { box-shadow:0 0 0 4px rgba(99,102,241,0.25); }
+  .target-char.flash-correct { background:#dcfce7; border-color:#22c55e; }
+  .target-char.flash-wrong { background:#fee2e2; border-color:#ef4444; }
+  .target-char.shake { animation: shake .3s ease; }
+
+  .note { font-size:0.85rem; color:#64748b; line-height:1.6; }
+  .note b { color:#334155; }
+
+  /* ---------- Login screen ---------- */
+  #loginScreen {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px 16px;
+  }
+  .login-field select { width:100%; padding:11px 12px; border:1px solid #cbd5e1; border-radius:10px; font:inherit; background:#fff; }
+  .login-card {
+    background:#fff; border-radius:20px; padding:32px 28px; max-width:420px; width:100%;
+    box-shadow: 0 8px 28px rgba(30,41,59,0.12);
+  }
+  .login-title { text-align:center; font-size:1.4rem; font-weight:700; color:#312e81; margin-bottom:4px; }
+  .login-sub { text-align:center; color:#64748b; font-size:0.9rem; margin-bottom:20px; }
+  .login-tabs { display:flex; background:#f1f5f9; border-radius:12px; padding:4px; margin-bottom:20px; }
+  .login-tab {
+    flex:1; text-align:center; padding:9px 0; border-radius:9px; font-weight:600; font-size:0.92rem;
+    color:#64748b; cursor:pointer; transition: all .15s ease;
+  }
+  .login-tab.active { background:#4338ca; color:#fff; }
+  .login-field { margin-bottom:14px; }
+  .login-field label { display:block; font-size:0.85rem; font-weight:600; color:#334155; margin-bottom:6px; }
+  .login-field input {
+    width:100%; padding:11px 14px; border-radius:10px; border:2px solid #e2e8f0;
+    font-family:'Sarabun',sans-serif; font-size:1rem; outline:none; transition: border-color .15s ease;
+  }
+  .login-field input:focus { border-color:#6366f1; }
+  .login-pane { display:none; }
+  .login-pane.active { display:block; }
+  .btn-login {
+    width:100%; padding:12px 0; border:none; border-radius:10px; background:#4338ca; color:#fff;
+    font-family:'Sarabun',sans-serif; font-size:1.02rem; font-weight:700; cursor:pointer; margin-top:6px;
+  }
+  .btn-login:hover { background:#3730a3; }
+  .login-error { color:#b91c1c; font-size:0.87rem; text-align:center; min-height:20px; margin-top:8px; font-weight:600; }
+
+  /* ---------- Top bar (student app) ---------- */
+  .topbar {
+    max-width:900px; margin:0 auto 14px; display:flex; align-items:center; justify-content:space-between;
+    background:#fff; border-radius:14px; padding:10px 18px; box-shadow: 0 4px 16px rgba(30,41,59,0.08);
+  }
+  .topbar .who { font-weight:700; color:#312e81; font-size:0.95rem; }
+  .topbar .who span { color:#64748b; font-weight:500; font-size:0.85rem; display:block; }
+  .btn-logout {
+    border:none; background:#fee2e2; color:#b91c1c; font-family:'Sarabun',sans-serif;
+    font-weight:600; font-size:0.85rem; padding:8px 16px; border-radius:8px; cursor:pointer;
+  }
+  .btn-logout:hover { background:#fecaca; }
+  .sync-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-left:6px; }
+  .sync-dot.off { background:#cbd5e1; }
+
+  /* ---------- Teacher dashboard ---------- */
+  .teacher-wrap { max-width:1100px; margin:0 auto; }
+  .teacher-head {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px;
+  }
+  .teacher-head h1 { margin:0; font-size:1.5rem; color:#312e81; }
+  .teacher-summary { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .tsum { background:#fff; border-radius:14px; padding:12px 20px; box-shadow:0 4px 16px rgba(30,41,59,0.08); min-width:130px; text-align:center; }
+  .tsum .num { font-size:1.6rem; font-weight:800; color:#4338ca; }
+  .tsum .label { font-size:0.82rem; color:#64748b; }
+  .student-table-wrap { background:#fff; border-radius:16px; padding:16px 18px; box-shadow:0 4px 16px rgba(30,41,59,0.08); overflow-x:auto; margin-bottom:20px; }
+  table.student-table { width:100%; border-collapse:collapse; font-size:0.86rem; min-width:760px; }
+  table.student-table th { text-align:left; padding:8px 10px; color:#475569; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+  table.student-table td { padding:8px 10px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .status-pill.online { background:#dcfce7; color:#15803d; }
+  .status-pill.offline { background:#f1f5f9; color:#94a3b8; }
+  .ex-pill { padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; background:#eef2ff; color:#4338ca; }
+  .ex-pill.idle { background:#f1f5f9; color:#94a3b8; }
+  .mini-bar-wrap { width:90px; height:7px; background:#e2e8f0; border-radius:6px; overflow:hidden; }
+  .mini-bar { height:100%; background:#6366f1; }
+  .result-badges span { display:inline-block; background:#f1f5f9; border-radius:6px; padding:1px 7px; margin:1px 2px; font-size:0.74rem; color:#334155; }
+  .result-badges span.done { background:#dcfce7; color:#15803d; }
+  .btn-clear { border:none; background:#fee2e2; color:#b91c1c; font-family:'Sarabun',sans-serif; font-weight:600; font-size:0.82rem; padding:8px 14px; border-radius:8px; cursor:pointer; }
+  .btn-clear:hover { background:#fecaca; }
+  .empty-row td { text-align:center; color:#94a3b8; padding:26px 10px; }
+
+/* ===== English lesson picker + keyboard ===== */
+.lesson-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px; }
+.lesson-btn {
+  border:2px solid #c7d2fe; background:#fff; border-radius:14px; padding:10px 8px;
+  cursor:pointer; font-family:'Sarabun',sans-serif; text-align:center;
+  transition: all .15s ease;
+}
+.lesson-btn:hover { border-color:#6366f1; background:#eef2ff; }
+.lesson-btn .lt { font-weight:700; color:#312e81; font-size:1rem; }
+.lesson-btn .ll { font-family:'Courier New',monospace; font-size:.9rem; color:#64748b; margin-top:3px; font-weight:700; }
+.lesson-btn.active { background:#4338ca; border-color:#4338ca; box-shadow:0 4px 12px rgba(67,56,202,.3); }
+.lesson-btn.active .lt, .lesson-btn.active .ll { color:#fff; }
+.lesson-desc { margin-top:12px; text-align:center; font-size:.92rem; color:#475569; }
+.lesson-desc .chip {
+  display:inline-block; min-width:26px; padding:1px 7px; margin:2px; border-radius:7px;
+  background:#f1f5f9; color:#334155; font-family:'Courier New',monospace; font-weight:700;
+}
+.lesson-desc .chip.new { background:#fef3c7; color:#92400e; }
+
+.target-en {
+  font-family:'Courier New',monospace; font-size:2rem; font-weight:700;
+  line-height:2.4; letter-spacing:.06em; text-align:left;
+  position:relative; max-height:280px; overflow-y:auto; scroll-behavior:auto;
+}
+.target-en .grp { display:inline-block; white-space:nowrap; }
+.target-en .ch.sp { display:inline-block; min-width:.7em; }
+
+.finger-hint { text-align:center; margin-top:10px; font-size:.95rem; color:#4338ca; font-weight:600; min-height:24px; }
+
+.kb-en { margin-top:16px; }
+.kb-en .kb-row { gap:5px; margin-bottom:5px; }
+.kb-en .kb-r1 { padding-left:20px; }
+.kb-en .kb-r2 { padding-left:52px; }
+.kb-en .key {
+  width:40px; height:40px; border-radius:8px; opacity:1;
+  font-family:'Courier New',monospace; font-size:1.05rem; font-weight:700; color:#94a3b8;
+}
+.kb-en .key.inpool { background:#eef2ff; border-color:#a5b4fc; color:#3730a3; }
+.kb-en .key.newkey { background:#fef3c7; border-color:#f59e0b; color:#92400e; }
+.kb-en .key.active {
+  background:#4338ca; border-color:#312e81; color:#fff; transform:scale(1.14);
+  box-shadow:0 0 0 4px rgba(99,102,241,.3);
+}
+.kb-en .key.space { width:260px; font-size:.8rem; font-family:'Sarabun',sans-serif; }
+@media (max-width:640px) {
+  .target-en { font-size:1.45rem; }
+  .kb-en .key { width:28px; height:30px; font-size:.85rem; }
+  .kb-en .kb-r1 { padding-left:12px; }
+  .kb-en .kb-r2 { padding-left:30px; }
+  .kb-en .key.space { width:170px; }
+}
+
+/* ===== Built-in game audio ===== */
+#gameAudioButton{
+  position:fixed; right:18px; bottom:18px; z-index:99999;
+  border:2px solid rgba(255,255,255,.75);
+  border-radius:999px; padding:11px 18px;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+  color:#fff; font:700 15px/1.1 'Sarabun',sans-serif;
+  box-shadow:0 8px 24px rgba(49,46,129,.28);
+  cursor:pointer; user-select:none;
+}
+#gameAudioButton.on{background:linear-gradient(135deg,#16a34a,#059669);}
+#gameAudioButton.off{background:linear-gradient(135deg,#64748b,#475569);}
+#gameAudioButton:active{transform:scale(.97);}
+
+</style>
+</head>
+<body>
+<button id="gameAudioButton" type="button" aria-label="เปิดหรือปิดเสียงเกม">🔊 เปิดเสียงเกม</button>
+
+<!-- ================= LOGIN SCREEN ================= -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-title">แบบฝึกพิมพ์ดีดสัมผัสภาษาอังกฤษ</div>
+    <div class="login-sub">เข้าสู่ระบบเพื่อเริ่มฝึกพิมพ์</div>
+
+    <div class="login-tabs">
+      <div class="login-tab active" id="tabStudent" onclick="switchLoginTab('student')">นักเรียน</div>
+      <div class="login-tab" id="tabTeacher" onclick="switchLoginTab('teacher')">ครูผู้สอน</div>
+    </div>
+
+    <div id="paneStudent" class="login-pane active">
+      <div class="login-field">
+        <label>สาขาวิชา</label>
+        <select id="inDepartment">
+          <option value="">เลือกสาขาวิชา</option>
+          <option value="การจัดการฯ">การจัดการฯ</option>
+          <option value="การบัญชี">การบัญชี</option>
+          <option value="การตลาด">การตลาด</option>
+        </select>
+      </div>
+      <div class="login-field">
+        <label>รหัสประจำตัวนักเรียน</label>
+        <input type="text" id="inStudentId" inputmode="numeric" placeholder="เช่น 12345" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>ชื่อ</label>
+        <input type="text" id="inFirstName" placeholder="ชื่อจริง" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>นามสกุล</label>
+        <input type="text" id="inLastName" placeholder="นามสกุล" autocomplete="off">
+      </div>
+      <button class="btn-login" onclick="doStudentLogin()">เข้าสู่ระบบ</button>
+    </div>
+
+    <div id="paneTeacher" class="login-pane">
+      <div class="login-field">
+        <label>รหัสผ่านครูผู้สอน</label>
+        <input type="password" id="inTeacherCode" inputmode="numeric" placeholder="กรอกรหัสผ่าน" autocomplete="off">
+      </div>
+      <button class="btn-login" onclick="doTeacherLogin()">เข้าสู่โหมดครูผู้สอน</button>
+    </div>
+
+    <div id="loginError" class="login-error"></div>
+  </div>
+</div>
+
+<!-- ================= TEACHER DASHBOARD ================= -->
+<div id="teacherDashboard" style="display:none;">
+  <div class="teacher-wrap" style="padding:24px 16px;">
+    <div class="teacher-head">
+      <h1>แดชบอร์ดครูผู้สอน — ติดตามการพิมพ์แบบเรียลไทม์</h1>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-clear" onclick="teacherClearAll()">ล้างข้อมูลนักเรียนทั้งหมด</button>
+        <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+      </div>
+    </div>
+    <div class="teacher-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px;">
+      <input id="teacherSearch" placeholder="ค้นหาชื่อ / รหัสนักเรียน" oninput="teacherApplyFilters()">
+      <select id="teacherDepartment" onchange="teacherApplyFilters()">
+        <option value="">ทุกสาขาวิชา</option>
+        <option value="การจัดการฯ">การจัดการฯ</option>
+        <option value="การบัญชี">การบัญชี</option>
+        <option value="การตลาด">การตลาด</option>
+      </select>
+      <input id="teacherDate" type="date" onchange="teacherApplyFilters()" title="ค้นหาตามวันที่ทำแบบฝึก">
+      <input id="teacherTime" type="time" onchange="teacherApplyFilters()" title="ค้นหาตามเวลาที่ทำแบบฝึก">
+    </div>
+    <div class="teacher-summary">
+      <div class="tsum"><div class="num" id="tsumOnline">0</div><div class="label">กำลังออนไลน์</div></div>
+      <div class="tsum"><div class="num" id="tsumTotal">0</div><div class="label">นักเรียนทั้งหมดในระบบ</div></div>
+      <div class="tsum"><div class="num" id="tsumDone">0</div><div class="label">พิมพ์เสร็จอย่างน้อย 1 แบบฝึก</div></div>
+    </div>
+    <div class="student-table-wrap">
+      <table class="student-table">
+        <thead>
+          <tr>
+            <th>สถานะ</th><th>สาขาวิชา</th><th>ชื่อ-นามสกุล</th><th>รหัสนักเรียน</th><th>กำลังพิมพ์แบบฝึก</th>
+            <th>ความคืบหน้า</th><th>พิมพ์ถูก</th><th>พิมพ์ผิด</th><th>% ถูกต้อง</th><th>ผลที่ส่งแล้ว</th><th>รายละเอียด</th>
+          </tr>
+        </thead>
+        <tbody id="teacherTableBody">
+          <tr class="empty-row"><td colspan="11">ยังไม่มีนักเรียนเข้าสู่ระบบ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="teacherDetailModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:20px;max-width:720px;width:100%;max-height:85vh;overflow:auto;padding:22px;box-shadow:0 20px 60px rgba(15,23,42,.25);">
+    <div style="display:flex;justify-content:flex-end"><button class="btn-logout" onclick="closeTeacherDetail()">ปิด</button></div>
+    <div id="teacherDetailBody"></div>
+  </div>
+</div>
+
+<!-- ================= STUDENT APP ================= -->
+<div id="studentApp" style="display:none;">
+<div class="topbar">
+  <div class="who" id="topbarWho">—<span id="topbarSub"></span></div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span id="realtimeStatus" style="font-size:0.8rem; color:#64748b;">เรียลไทม์ <span class="sync-dot" id="syncDot"></span><span id="realtimeText">กำลังเชื่อมต่อ...</span></span>
+    <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+  </div>
+</div>
+<div class="wrap">
+  <h1>แบบฝึกพิมพ์สัมผัสภาษาอังกฤษ</h1>
+  <p class="subtitle">เลือกบทเรียน แล้วระบบจะสุ่มตัวอักษรของบทนั้นให้พิมพ์ทันที</p>
+
+  <div class="card">
+    <div class="lesson-grid" id="lesson-grid"></div>
+    <div class="lesson-desc" id="lesson-desc"></div>
+  </div>
+
+  <div class="card">
+    <div id="lesson-label" class="category-label"></div>
+    <div id="lesson-target" class="target-text target-en" tabindex="0"></div>
+    <div id="finger-hint" class="finger-hint"></div>
+    <div id="lesson-message" class="msg info">คลิกที่กรอบด้านบน แล้วพิมพ์ได้เลย (ต้องสลับแป้นพิมพ์เป็นภาษาอังกฤษก่อน)</div>
+    <div class="keyboard kb-en" id="lesson-keyboard"></div>
+  </div>
+
+  <div class="card stats">
+    <div class="stat"><div class="num" id="lesson-stat-correct">0</div><div class="label">พิมพ์ถูก</div></div>
+    <div class="stat"><div class="num" id="lesson-stat-wrongchar">0</div><div class="label">พิมพ์ผิด</div></div>
+    <div class="stat percent"><div class="num" id="lesson-stat-percent">0%</div><div class="label">% ที่พิมพ์ถูก</div></div>
+    <div class="stat"><div class="num" id="lesson-stat-progress">0/0</div><div class="label">ความคืบหน้า (ตัวอักษร)</div></div>
+  </div>
+  <button id="lesson-restart" class="btn-restart">สุ่มโจทย์ใหม่</button>
+
+  <div class="card note">
+    <p><b>วิธีเล่น:</b> กดปุ่มเลือกบทเรียนด้านบน ระบบจะสุ่ม "คำภาษาอังกฤษ" 100 คำ ที่สะกดได้จากตัวอักษรของบทนั้นเท่านั้น (เช่น sad fad add lad ass;)
+    ให้พิมพ์ทีละตัวตามลำดับรวมถึงการเว้นวรรค กรอบข้อความจะเลื่อนตามตัวที่กำลังพิมพ์อัตโนมัติ ตัวที่พิมพ์ถูกแล้วจะเป็นสีเขียว ตัวถัดไปมีเส้นใต้สีม่วง และปุ่มบนแป้นพิมพ์จะเรืองแสงให้เห็น
+    หากพิมพ์ผิดระบบจะไม่เลื่อนไปตัวถัดไปจนกว่าจะพิมพ์ถูก</p>
+    <p><b>ตัวอักษรในแต่ละบท:</b> บทที่ 1 ใช้ a s d f j k l ; &nbsp;|&nbsp; บทที่ 2.1 เพิ่ม g h ' &nbsp;|&nbsp; บทที่ 2.2 เพิ่ม r t u y &nbsp;|&nbsp; บทที่ 2.3 เพิ่ม v b n m &nbsp;|&nbsp; บทที่ 3.1 เพิ่ม w e i o &nbsp;|&nbsp; บทที่ 3.2 เพิ่ม x c q p z
+    (ทุกบทจะรวมตัวอักษรจากบทก่อนหน้าทั้งหมดมาสร้างคำด้วย โดยคำที่มีตัวอักษรใหม่ของบทนั้นจะปรากฏบ่อยเป็นพิเศษ ส่วน ; และ ' ไม่มีคำของตัวเอง จึงสุ่มใส่เป็นเครื่องหมาย เช่น sad; หรือ 'sad')</p>
+    <p><b>ข้อควรระวัง:</b> ต้องตั้งแป้นพิมพ์ของเครื่องเป็นภาษาอังกฤษ และปิด Caps Lock ก่อนเริ่มพิมพ์ ตัวอักษรทั้งหมดเป็นตัวพิมพ์เล็ก
+    ส่วน "นิ้วที่ใช้พิมพ์" เป็นคำแนะนำตามหลักการพิมพ์สัมผัสมาตรฐาน เว็บเบราว์เซอร์ตรวจจับไม่ได้ว่าคุณใช้นิ้วไหนกดจริง</p>
+  </div>
+</div>
+</div><!-- /studentApp -->
+
+<script>
+/* ============================================================
+   BUILT-IN AUDIO ENGINE
+   No external MP3 files: uses Web Audio so it works on Render/GitHub.
+   Browser policy is handled by unlocking on the user's first click/key.
+============================================================ */
+let gameAudioCtx = null;
+let gameMaster = null;
+let musicTimer = null;
+let musicOn = false;
+let audioUnlocked = false;
+let musicStep = 0;
+
+function ensureGameAudio(){
+  try{
+    if(!gameAudioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return false;
+      gameAudioCtx = new AC();
+      gameMaster = gameAudioCtx.createGain();
+      gameMaster.gain.value = 0.16;
+      gameMaster.connect(gameAudioCtx.destination);
+    }
+    if(gameAudioCtx.state === 'suspended'){
+      gameAudioCtx.resume().catch(()=>{});
+    }
+    return true;
+  }catch(e){
+    console.warn('Audio unavailable:', e);
+    return false;
+  }
+}
+
+function audioTone(freq, duration=.09, type='sine', volume=.08, when=0){
+  if(!ensureGameAudio() || !gameMaster) return;
+  const now = gameAudioCtx.currentTime + when;
+  const osc = gameAudioCtx.createOscillator();
+  const gain = gameAudioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume), now + .012);
+  gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(gameMaster);
+  osc.start(now);
+  osc.stop(now + duration + .02);
+}
+
+function playGameSfx(kind){
+  if(!audioUnlocked) return;
+  if(kind === 'correct'){
+    audioTone(660,.075,'sine',.10);
+    audioTone(880,.11,'sine',.08,.065);
+  }else if(kind === 'wrong'){
+    audioTone(170,.13,'sawtooth',.075);
+    audioTone(120,.12,'square',.055,.055);
+  }else if(kind === 'shiftWrong'){
+    audioTone(240,.08,'triangle',.07);
+    audioTone(180,.12,'triangle',.055,.07);
+  }else if(kind === 'complete'){
+    audioTone(523.25,.10,'sine',.09);
+    audioTone(659.25,.10,'sine',.09,.10);
+    audioTone(783.99,.18,'sine',.10,.20);
+  }else if(kind === 'timeout'){
+    audioTone(392,.12,'triangle',.07);
+    audioTone(293.66,.20,'triangle',.065,.13);
+  }else if(kind === 'click'){
+    audioTone(880,.08,'sine',.10);
+  }
+}
+
+const MUSIC_NOTES = [261.63,329.63,392.00,329.63,293.66,349.23,440.00,349.23];
+function musicTick(){
+  if(!musicOn || !audioUnlocked) return;
+  const n = MUSIC_NOTES[musicStep % MUSIC_NOTES.length];
+  audioTone(n,.20,'triangle',.018);
+  if(musicStep % 4 === 0) audioTone(n/2,.25,'sine',.012,.02);
+  musicStep++;
+}
+function startGameMusic(){
+  if(!audioUnlocked) return;
+  musicOn = true;
+  if(!musicTimer){
+    musicTick();
+    musicTimer = setInterval(musicTick, 360);
+  }
+}
+function stopGameMusic(){
+  musicOn = false;
+  if(musicTimer){
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
+}
+async function unlockGameAudio(){
+  if(!ensureGameAudio()) return false;
+  try{
+    await gameAudioCtx.resume();
+    audioUnlocked = gameAudioCtx.state === 'running';
+  }catch(e){
+    audioUnlocked = false;
+  }
+  if(audioUnlocked){
+    playGameSfx('click');
+    startGameMusic();
+    const b = document.getElementById('gameAudioButton');
+    if(b){
+      b.textContent = '🔊 เสียงเปิดอยู่';
+      b.classList.add('on');
+      b.classList.remove('off');
+    }
+  }
+  return audioUnlocked;
+}
+
+(function installGameAudio(){
+  const b = document.getElementById('gameAudioButton');
+
+  if(b){
+    b.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(!audioUnlocked){
+        await unlockGameAudio();
+      }else{
+        stopGameMusic();
+        audioUnlocked = false;
+        try{
+          if(gameMaster && gameAudioCtx){
+            gameMaster.gain.setTargetAtTime(0.0001, gameAudioCtx.currentTime, .02);
+          }
+        }catch(_){}
+        b.textContent = '🔇 เปิดเสียงเกม';
+        b.classList.remove('on');
+        b.classList.add('off');
+      }
+    });
+  }
+
+  // A key press is a user gesture. This means typing itself can unlock audio.
+  window.addEventListener('keydown', ()=>{
+    if(!audioUnlocked) unlockGameAudio();
+  }, {once:false, passive:true});
+
+  // Also unlock on the first click/touch anywhere, but never hide the button.
+  window.addEventListener('pointerdown', (e)=>{
+    if(e.target && e.target.id === 'gameAudioButton') return;
+    if(!audioUnlocked) unlockGameAudio();
+  }, {passive:true});
+})();
+
+
+/* ============================================================
+   English typing lessons (บทเรียนพิมพ์สัมผัสภาษาอังกฤษ)
+   Each lesson's random pool is cumulative: it contains every letter of the
+   previous lessons plus the new letters of the selected lesson.
+============================================================ */
+const LESSONS = [
+  { key: 'L1',   label: 'บทที่ 1',   newLetters: 'asdfjkl;' },
+  { key: 'L2_1', label: 'บทที่ 2.1', newLetters: "gh'" },
+  { key: 'L2_2', label: 'บทที่ 2.2', newLetters: 'rtuy' },
+  { key: 'L2_3', label: 'บทที่ 2.3', newLetters: 'vbnm' },
+  { key: 'L3_1', label: 'บทที่ 3.1', newLetters: 'weio' },
+  { key: 'L3_2', label: 'บทที่ 3.2', newLetters: 'xcqpz' },
+];
+(function buildPools() {
+  let acc = '';
+  LESSONS.forEach(l => { acc += l.newLetters; l.pool = acc; });
+})();
+
+const WORDS_PER_ROUND = 100;   // length of one exercise (words, i.e. spaces-separated)
+const NEW_WORD_WEIGHT = 0.65;  // chance a word is picked from words containing the lesson's NEW letters
+
+// Word bank. A word is used in a lesson only if EVERY character of it is in
+// that lesson's cumulative letter pool, so early lessons get only simple words.
+const WORD_BANK = `
+a as ad add adds all alas alfalfa ask asks dad dads fad fads fall falls flask flasks lad lads lass sad sass salad salads salsa ass jaffa jaffas
+gag gal gals gas gash gad gads hag hags had hah hall halls half has hash dash flag flags flash glad glass gall gala gaff gaffs lash shall shad shag slag slash sag sags ah aha ash haha
+art tar rat rats sat tad tag tags tall tart start star stars stash trash thrash taught draught gust just dust rust tusk husk hurl hurt hurry dusty gusty rusty lusty fussy gutsy shy shyly slyly tray stray fray dry try fry sky ugly tug rug jug hug dug gut hut rut fur furl surf turf turfs sulky husky ruddy tardy hardy guard guards dusk task tasks talk talks dart darts draft drafts graft grafts shaft shafts fast last lasts salt halt fault stud study sturdy stuff stuffy gruff grass rash lard hard harsh yard yards lady gladly sadly ray rays day days gay hay jay lay say slay stay gray fly sly ugh hugs tugs jugs rugs flurry slurry furry starry sultry that's
+man mans ban bans bad bag bags bat bats nab nag nags mad mask mass math hand hands band bands land sand stand grand brand bran bunny funny sunny bunk junk sunk hunk dunk drunk trunk brunt grunt stunt hunt hung lung rung sung dung mud mug bug bud hum gum sum rum yum drum drums slum glum thumb numb dumb lamb lambs barn darn yarn harm farm farms balm balmy bay may nay vary van vans sultan mural musk hymn myth mustang bust must busy mushy tummy mummy dummy gummy bury burn burnt turn turns urn nut nuts bun buns gun guns run runs fun fund funds madly badly dryly vast vat vats vault vaults gnat snub stub hang sang rang gang bang tang fang slang strand bland gland hasn't
+we he she the they them then this with will what when where who why how won two now low row show slow glow grow flow blow brow town down gown own owl owls bow bows tow vow wow wood wool word words work works world would should hold gold fold told sold old bold load road toad goat boat moat
+eat tea sea see fee feed feel feet free tree three these those there here her hers were wore more sore tore bore fore shore store heard great hear near dear fear gear bear tear year years yes yet net met get let set bet jet wet vet red bed fed led men hen ten den even seven never ever over oven level lever
+is it if in did kid lid big dig fig jig rig wig sit fit hit bit kit lit thing think king ring sing wing bring string sting skill still stilt drift gift lift shift swift filth fifth width wish fish dish hill mill till fill kill bill gill sill milk silk wild mild light night right tight sight fight might flight bright slight fright height
+go so no to do of on or off oil odd ode dog log fog jog hog bog got not hot lot rot dot jot tot son ton don't won't isn't didn't wasn't it's he's she's we're let's here's there's who's how's where's what's
+box fix six mix tax wax fax exit exam next text taxi relax expect expert pack pick pocket picnic pencil pizza zip zoo zone zebra zero zest maze size prize quiz quick quiet quit quite queen quest question quote quartz quack quake crazy cozy jazz fizz buzz fuzzy puzzle pixel copy happy apple paper people pepper power plan play please place plant spot stop step speak sport spring special computer carpet cactus candy cake care cat cup cut cold cool code clock click clap class clear close cloud coat coffee cream crowd cross dance face fact force juice magic music noise piece price pride rice
+`.split(/\s+/).filter(Boolean);
+
+const KB_ROWS = ['qwertyuiop', "asdfghjkl;'", 'zxcvbnm'];
+const FINGER_GROUPS = [
+  ['นิ้วก้อยมือซ้าย', 'qaz'],
+  ['นิ้วนางมือซ้าย', 'wsx'],
+  ['นิ้วกลางมือซ้าย', 'edc'],
+  ['นิ้วชี้มือซ้าย', 'rtfgvb'],
+  ['นิ้วชี้มือขวา', 'yuhjnm'],
+  ['นิ้วกลางมือขวา', 'ik'],
+  ['นิ้วนางมือขวา', 'ol'],
+  ['นิ้วก้อยมือขวา', ";p'"],
+  ['นิ้วโป้ง', ' '],
+];
+const FINGER_OF = {};
+FINGER_GROUPS.forEach(([name, keys]) => Array.from(keys).forEach(k => { FINGER_OF[k] = name; }));
+
+function randInt(n) { return Math.floor(Math.random() * n); }
+
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// All bank words that can be spelled using only this lesson's letters.
+function wordsForLesson(lesson) {
+  return [...new Set(WORD_BANK)].filter(w => Array.from(w).every(c => lesson.pool.includes(c)));
+}
+
+// A "shuffle bag": hands out every word once in random order before repeating.
+function makeBag(words) {
+  let queue = [];
+  return function next(avoid) {
+    if (queue.length === 0) queue = shuffled(words);
+    let w = queue.pop();
+    if (w === avoid && words.length > 1) {   // never the same word twice in a row
+      if (queue.length === 0) queue = shuffled(words);
+      const other = queue.pop();
+      queue.push(w);
+      w = other;
+    }
+    return w;
+  };
+}
+
+// Random exercise: WORDS_PER_ROUND real words made only from the lesson's
+// letters, separated by spaces. Words containing the lesson's NEW letters
+// are picked more often. ';' and ' have no words of their own, so they are
+// practised as punctuation (sad; / 'sad').
+function buildPracticeText(lesson) {
+  const all = wordsForLesson(lesson);
+  const hasOld = lesson.pool.length > lesson.newLetters.length;
+  const fresh = hasOld ? all.filter(w => Array.from(lesson.newLetters).some(c => w.includes(c))) : [];
+  const nextAll = makeBag(all);
+  const nextFresh = fresh.length ? makeBag(fresh) : null;
+
+  const words = [];
+  for (let i = 0; i < WORDS_PER_ROUND; i++) {
+    const prev = words[i - 1];
+    const useFresh = nextFresh && Math.random() < NEW_WORD_WEIGHT;
+    words.push(useFresh ? nextFresh(prev) : nextAll(prev));
+  }
+
+  const hasSemi = lesson.pool.includes(';');
+  const hasApos = lesson.pool.includes("'");
+  const pSemi = lesson.newLetters.includes(';') ? 0.3 : 0.1;
+  const pApos = lesson.newLetters.includes("'") ? 0.3 : 0.08;
+  const out = words.map(w => {
+    if (hasApos && !w.includes("'") && Math.random() < pApos) w = "'" + w + "'";
+    if (hasSemi && Math.random() < pSemi) w += ';';
+    return w;
+  });
+  // Make sure each punctuation key that is NEW in this lesson appears at least once.
+  if (lesson.newLetters.includes(';') && !out.some(w => w.includes(';'))) out[randInt(out.length)] += ';';
+  if (lesson.newLetters.includes("'") && !out.some(w => w.includes("'"))) {
+    const k = randInt(out.length); out[k] = "'" + out[k] + "'";
+  }
+  return out.join(' ');
+}
+
+let lessonIdx = 0;
+let lessonChars = [];
+let typedPos = 0;
+let correctCount = 0, wrongCount = 0;
+let lessonCompleted = false;
+
+const lessonTargetEl = document.getElementById('lesson-target');
+
+function getCurrentLessonKey() { return LESSONS[lessonIdx].key; }
+
+function $l(id) { return document.getElementById('lesson-' + id); }
+
+function setMessage(text, cls) {
+  const m = $l('message');
+  m.textContent = text;
+  m.className = 'msg ' + cls;
+}
+
+function buildLessonButtons() {
+  const grid = $l('grid');
+  grid.innerHTML = LESSONS.map((l, i) =>
+    `<button type="button" class="lesson-btn" data-i="${i}">
+       <div class="lt">${l.label}</div>
+       <div class="ll">${i === 0 ? '' : '+ '}${Array.from(l.newLetters).join(' ')}</div>
+     </button>`).join('');
+  grid.addEventListener('click', (e) => {
+    const b = e.target.closest('.lesson-btn');
+    if (!b) return;
+    selectLesson(parseInt(b.dataset.i, 10), true);
+  });
+}
+
+function buildKeyboard() {
+  const rows = KB_ROWS.map((r, i) =>
+    `<div class="kb-row kb-r${i}">` +
+    Array.from(r).map(k => `<div class="key" data-k="${k}">${k}</div>`).join('') +
+    '</div>').join('');
+  $l('keyboard').innerHTML = rows +
+    '<div class="kb-row"><div class="key space" data-k=" ">Space</div></div>';
+}
+
+function renderDisplay() {
+  let html = '';
+  let open = false;
+  lessonChars.forEach((c, i) => {
+    if (!open) { html += '<span class="grp">'; open = true; }
+    const cls = i < typedPos ? 'typed' : (i === typedPos ? 'current' : 'pending');
+    const isSpace = c === ' ';
+    html += `<span class="ch ${cls}${isSpace ? ' sp' : ''}" data-i="${i}">${isSpace ? '&nbsp;' : c}</span>`;
+    if (isSpace || i === lessonChars.length - 1) { html += '</span>'; open = false; }
+  });
+  lessonTargetEl.innerHTML = html;
+  // The text is long, so keep the current letter in the middle of the scrolling box.
+  const cur = lessonTargetEl.querySelector('.ch.current');
+  if (cur) lessonTargetEl.scrollTop = Math.max(0, cur.offsetTop - lessonTargetEl.clientHeight / 2);
+}
+
+function highlightKey() {
+  const l = LESSONS[lessonIdx];
+  const hasOld = l.pool.length > l.newLetters.length;
+  const expected = (!lessonCompleted && typedPos < lessonChars.length) ? lessonChars[typedPos] : null;
+  $l('keyboard').querySelectorAll('.key').forEach(k => {
+    const ch = k.dataset.k;
+    k.classList.toggle('inpool', l.pool.includes(ch));
+    k.classList.toggle('newkey', hasOld && l.newLetters.includes(ch));
+    k.classList.toggle('active', expected !== null && ch === expected);
+  });
+  const hint = document.getElementById('finger-hint');
+  if (expected === null) { hint.textContent = ''; return; }
+  const shown = expected === ' ' ? 'เว้นวรรค (Space)' : `"${expected}"`;
+  hint.textContent = `ตัวถัดไป: ${shown} — ${FINGER_OF[expected] || ''}`;
+}
+
+function renderLessonInfo() {
+  const l = LESSONS[lessonIdx];
+  document.querySelectorAll('#lesson-grid .lesson-btn').forEach((b, i) => b.classList.toggle('active', i === lessonIdx));
+  const hasOld = l.pool.length > l.newLetters.length;
+  const oldPart = hasOld ? Array.from(l.pool.slice(0, l.pool.length - l.newLetters.length)) : [];
+  const chips =
+    oldPart.map(c => `<span class="chip">${c}</span>`).join('') +
+    Array.from(l.newLetters).map(c => `<span class="chip ${hasOld ? 'new' : ''}">${c}</span>`).join('');
+  $l('desc').innerHTML = `ตัวอักษรที่ระบบสุ่ม${hasOld ? ' (สีเหลือง = ตัวอักษรใหม่ของบทนี้)' : ''}: ${chips}`;
+  $l('label').textContent = `${l.label} — สุ่ม ${WORDS_PER_ROUND} คำ`;
+}
+
+function updateStats() {
+  $l('stat-correct').textContent = correctCount;
+  $l('stat-wrongchar').textContent = wrongCount;
+  const total = correctCount + wrongCount;
+  const pct = total === 0 ? 0 : (correctCount / total) * 100;
+  $l('stat-percent').textContent = pct.toFixed(1) + '%';
+  $l('stat-progress').textContent = `${typedPos}/${lessonChars.length}`;
+}
+
+function flashTarget(cls) {
+  lessonTargetEl.classList.remove('flash-correct', 'flash-wrong');
+  void lessonTargetEl.offsetWidth;
+  lessonTargetEl.classList.add(cls);
+  setTimeout(() => lessonTargetEl.classList.remove(cls), 300);
+}
+
+function shakeCurrentChar() {
+  const el = lessonTargetEl.querySelector(`.ch[data-i="${typedPos}"]`);
+  if (!el) return;
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+function startRound() {
+  lessonChars = Array.from(buildPracticeText(LESSONS[lessonIdx]));
+  typedPos = 0;
+  correctCount = 0; wrongCount = 0;
+  lessonCompleted = false;
+  renderLessonInfo();
+  renderDisplay();
+  highlightKey();
+  updateStats();
+  setMessage('คลิกที่กรอบด้านบน แล้วพิมพ์ได้เลย (ต้องสลับแป้นพิมพ์เป็นภาษาอังกฤษก่อน)', 'info');
+}
+
+function selectLesson(i, focusTarget) {
+  lessonIdx = i;
+  startRound();
+  if (typeof setCurrentExercise === 'function') setCurrentExercise(getCurrentLessonKey());
+  if (focusTarget) lessonTargetEl.focus();
+}
+
+function finishRound() {
+  lessonCompleted = true;
+  playGameSfx('complete');
+  flashTarget('flash-correct');
+  highlightKey();
+  const total = correctCount + wrongCount;
+  const pct = total === 0 ? 0 : (correctCount / total) * 100;
+  setMessage(`🎉 พิมพ์จบ ${LESSONS[lessonIdx].label} แล้ว! ความแม่นยำ ${pct.toFixed(1)}% — กด "สุ่มโจทย์ใหม่" เพื่อฝึกซ้ำ หรือเลือกบทอื่น`, 'ok');
+  if (typeof reportCompletion === 'function' && typeof session !== 'undefined' && session) {
+    reportCompletion(getCurrentLessonKey());
+  }
+}
+
+function handleAttempt(produced) {
+  if (lessonCompleted) return;
+  const expected = lessonChars[typedPos];
+
+  if (produced !== expected) {
+    wrongCount++;
+    playGameSfx('wrong');
+    flashTarget('flash-wrong');
+    shakeCurrentChar();
+    const label = expected === ' ' ? 'เว้นวรรค (Space)' : `"${expected}"`;
+    let extra = '';
+    if (/[฀-๿]/.test(produced)) extra = ' (แป้นพิมพ์ยังเป็นภาษาไทย กด Ctrl+Space หรือ Alt+Shift เพื่อสลับเป็นภาษาอังกฤษ)';
+    else if (produced !== produced.toLowerCase()) extra = ' (ตรวจสอบว่าปิด Caps Lock และไม่ได้กด Shift)';
+    setMessage(`พิมพ์ผิด! ตัวถัดไปที่ต้องพิมพ์คือ ${label}${extra}`, 'bad');
+    updateStats();
+    return;
+  }
+
+  correctCount++;
+  playGameSfx('correct');
+  typedPos++;
+  updateStats();
+  renderDisplay();
+
+  if (typedPos >= lessonChars.length) {
+    finishRound();
+  } else {
+    highlightKey();
+    setMessage('พิมพ์ตัวถัดไปได้เลย', 'info');
+  }
+}
+
+lessonTargetEl.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.length !== 1) return;   // ignore Shift, Backspace, Tab, etc.
+  e.preventDefault();               // stops Space scrolling / ' quick-find
+  handleAttempt(e.key);
+});
+
+lessonTargetEl.addEventListener('focus', () => {
+  if (typeof setCurrentExercise === 'function') setCurrentExercise(getCurrentLessonKey());
+});
+
+$l('restart').addEventListener('click', () => {
+  startRound();
+  lessonTargetEl.focus();
+});
+
+buildLessonButtons();
+buildKeyboard();
+selectLesson(0, false);
+
+</script>
+
+<script>
+/* =====================================================================
+   ระบบล็อกอิน + โหมดครูผู้สอน + ซิงค์ผลการพิมพ์แบบเรียลไทม์ (Firebase)
+   + ส่งผลสรุปไปเก็บที่ Google Sheet เมื่อพิมพ์แบบฝึกแต่ละแบบเสร็จ
+
+   ***ต้องตั้งค่า 2 จุดก่อนใช้งานจริง***
+   1) FIREBASE_CONFIG ด้านล่าง -> ใส่ค่าจากโปรเจกต์ Firebase ของคุณ
+      (Firebase console > Project settings > SDK setup and configuration)
+      และเปิดใช้ Realtime Database (ตั้งกฎอ่าน/เขียนตามความเหมาะสม)
+   2) GOOGLE_SHEET_WEBAPP_URL -> URL ของ Google Apps Script ที่ deploy เป็น
+      Web App (ดูโค้ด Apps Script ตัวอย่างที่แนบมาให้แยกต่างหาก)
+   ===================================================================== */
+
+const TEACHER_CODE = '2516';
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAIoXWt_aETwM9hEjQAAz3wlwIBKKULbWg",
+  authDomain: "classroom-kanidtha.firebaseapp.com",
+  databaseURL: "https://classroom-kanidtha-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "classroom-kanidtha",
+  storageBucket: "classroom-kanidtha.firebasestorage.app",
+  messagingSenderId: "784233354935",
+  appId: "1:784233354935:web:26d6c54f6af40e0422df32",
+  measurementId: "G-M8PMK8ZXNM"
+};
+
+// พื้นที่ข้อมูลใหม่ แยกจากข้อมูล sessions เดิมโดยสมบูรณ์
+const NEW_DATA_ROOT = 'new_typing_data_v1';
+const NEW_SESSIONS_PATH = NEW_DATA_ROOT + '/sessions';
+
+const GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyGyKNJDxVq78tTjJTuWftpDVZF6XljF7ZP7Oi29NYfAluHOT23XbamCsisIvkVeKkv/exec";
+
+const LESSON_KEYS = LESSONS.map(l => l.key);
+const EXERCISE_LABELS = {};
+LESSONS.forEach(l => { EXERCISE_LABELS[l.key] = l.label; });
+
+let fbApp = null, fbDb = null, fbReady = false;
+try {
+  fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+  fbDb = firebase.database();
+  fbReady = true;
+} catch (err) {
+  console.warn('Firebase ยังไม่ได้ตั้งค่า (ใส่ FIREBASE_CONFIG ก่อนใช้งานจริง):', err);
+}
+
+let session = null; // {sessionId, studentId, firstName, lastName}
+let sessionRef = null;
+
+function loadSavedSession() {
+  try { return JSON.parse(localStorage.getItem('typing_session') || 'null'); } catch(e) { return null; }
+}
+function saveSession(s) { localStorage.setItem('typing_session', JSON.stringify(s)); }
+function clearSavedSession() { localStorage.removeItem('typing_session'); }
+
+function switchLoginTab(which) {
+  document.getElementById('tabStudent').classList.toggle('active', which === 'student');
+  document.getElementById('tabTeacher').classList.toggle('active', which === 'teacher');
+  document.getElementById('paneStudent').classList.toggle('active', which === 'student');
+  document.getElementById('paneTeacher').classList.toggle('active', which === 'teacher');
+  document.getElementById('loginError').textContent = '';
+}
+
+function showLoginError(msg) { document.getElementById('loginError').textContent = msg; }
+
+function doStudentLogin() {
+  const department = document.getElementById('inDepartment').value.trim();
+  const studentId = document.getElementById('inStudentId').value.trim();
+  const firstName = document.getElementById('inFirstName').value.trim();
+  const lastName = document.getElementById('inLastName').value.trim();
+  if (!department || !studentId || !firstName || !lastName) {
+    showLoginError('กรุณาเลือกสาขาวิชา และกรอกรหัส ชื่อ นามสกุลให้ครบ');
+    return;
+  }
+  const sessionId = 'sess_' + studentId + '_' + Date.now().toString(36);
+  session = { sessionId, studentId, firstName, lastName, department };
+  saveSession(session);
+  enterStudentApp();
+}
+
+function doTeacherLogin() {
+  const code = document.getElementById('inTeacherCode').value.trim();
+  if (code !== TEACHER_CODE) {
+    showLoginError('รหัสผ่านไม่ถูกต้อง');
+    return;
+  }
+  saveSession({ role: 'teacher' });
+  enterTeacherApp();
+}
+
+function doLogout() {
+  if (sessionRef) {
+    sessionRef.onDisconnect().cancel();
+    sessionRef.update({ status: 'offline', currentExercise: null }).catch(()=>{});
+  }
+  clearSavedSession();
+  session = null;
+  if (teacherListenerRef) { teacherListenerRef.off(); teacherListenerRef = null; }
+  document.getElementById('studentApp').style.display = 'none';
+  document.getElementById('teacherDashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('inTeacherCode').value = '';
+  const dep = document.getElementById('inDepartment'); if (dep) dep.value = '';
+  const sid = document.getElementById('inStudentId'); if (sid) sid.value = '';
+  const fn = document.getElementById('inFirstName'); if (fn) fn.value = '';
+  const ln = document.getElementById('inLastName'); if (ln) ln.value = '';
+}
+
+function enterStudentApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('teacherDashboard').style.display = 'none';
+  document.getElementById('studentApp').style.display = 'block';
+  document.getElementById('topbarWho').innerHTML =
+    `${session.firstName} ${session.lastName}<span>${session.department || ''} · รหัสนักเรียน: ${session.studentId}</span>`;
+  setupPresence();
+}
+
+function enterTeacherApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('studentApp').style.display = 'none';
+  document.getElementById('teacherDashboard').style.display = 'block';
+  setupTeacherListener();
+}
+
+/* ---------------- Presence + live sync (student side) ---------------- */
+
+function setupPresence() {
+  if (!fbReady) {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('realtimeText');
+    if (dot) dot.classList.add('off');
+    if (txt) txt.textContent = 'เชื่อมต่อไม่ได้';
+    return;
+  }
+
+  sessionRef = fbDb.ref(NEW_SESSIONS_PATH + '/' + session.sessionId);
+
+  const base = {
+    studentId: session.studentId,
+    firstName: session.firstName,
+    lastName: session.lastName,
+    department: session.department || '',
+    status: 'online',
+    currentExercise: null,
+    lastActive: firebase.database.ServerValue.TIMESTAMP,
+    connectedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+
+  // Browser/network connection state from Firebase itself.
+  fbDb.ref('.info/connected').on('value', snap => {
+    const connected = snap.val() === true;
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('realtimeText');
+
+    if (connected) {
+      if (dot) dot.classList.remove('off');
+      if (txt) txt.textContent = 'เชื่อมต่อแล้ว';
+      sessionRef.update({
+        status: 'online',
+        lastActive: firebase.database.ServerValue.TIMESTAMP
+      }).catch(()=>{});
+    } else {
+      if (dot) dot.classList.add('off');
+      if (txt) txt.textContent = 'กำลังเชื่อมต่อ...';
+    }
+  });
+
+  sessionRef.set(base).then(() => {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('realtimeText');
+    if (dot) dot.classList.remove('off');
+    if (txt) txt.textContent = 'เชื่อมต่อแล้ว';
+  }).catch(() => {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('realtimeText');
+    if (dot) dot.classList.add('off');
+    if (txt) txt.textContent = 'บันทึกไม่ได้';
+  });
+
+  sessionRef.onDisconnect().update({
+    status: 'offline',
+    currentExercise: null,
+    lastActive: firebase.database.ServerValue.TIMESTAMP
+  });
+
+  // Heartbeat: teacher sees the student as online and receives current stats.
+  if (window.__realtimeHeartbeat) clearInterval(window.__realtimeHeartbeat);
+  window.__realtimeHeartbeat = setInterval(() => {
+    if (sessionRef) {
+      sessionRef.update({
+        status: 'online',
+        lastActive: firebase.database.ServerValue.TIMESTAMP
+      }).catch(()=>{});
+      pushLiveStats(true);
+    }
+  }, 3000);
+}
+function setCurrentExercise(key) {
+  if (sessionRef) sessionRef.update({ currentExercise: key, status: 'online', lastActive: firebase.database.ServerValue.TIMESTAMP }).catch(()=>{});
+}
+
+// Reads whatever is currently on screen for one of the 3 exercises (no need
+// to touch the original game variables — just read the same stat elements
+// the page already displays).
+function readLiveStats(prefix) {
+  const g = (id) => { const el = document.getElementById(id); return el ? el.textContent : ''; };
+  const progress = g(prefix + 'stat-progress') || '0/0';
+  return {
+    correct: parseInt(g(prefix + 'stat-correct')) || 0,
+    wrongChar: parseInt(g(prefix + 'stat-wrongchar')) || 0,
+    wrongShift: parseInt(g(prefix + 'stat-wrongshift')) || 0,
+    percent: g(prefix + 'stat-percent') || '0%',
+    progress
+  };
+}
+
+let liveSyncTimer = null;
+function pushLiveStats(force = false) {
+  if (!sessionRef) return;
+  if (!force && liveSyncTimer) return;
+
+  if (liveSyncTimer) {
+    clearTimeout(liveSyncTimer);
+    liveSyncTimer = null;
+  }
+
+  const write = () => {
+    liveSyncTimer = null;
+    const payload = {
+      liveStats: { [getCurrentLessonKey()]: readLiveStats('lesson-') },
+      currentExercise: sessionRef ? undefined : null,
+      lastActive: firebase.database.ServerValue.TIMESTAMP,
+      status: 'online'
+    };
+
+    // Do not overwrite currentExercise with undefined.
+    delete payload.currentExercise;
+
+    sessionRef.update(payload).catch(()=>{});
+  };
+
+  if (force) write();
+  else liveSyncTimer = setTimeout(write, 180);
+}
+// Watch the stat number elements for changes (no edits needed to the
+// original game logic) and push a live update whenever any of them change.
+['lesson-stat-correct','lesson-stat-wrongchar','lesson-stat-percent','lesson-stat-progress']
+.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  new MutationObserver(pushLiveStats).observe(el, { childList: true, characterData: true, subtree: true });
+});
+
+// (the lesson target registers its own focus listener -> setCurrentExercise)
+
+
+// Extra safety: even if a DOM mutation is missed, the teacher receives the
+// current score/progress at least every 1 second while the student is online.
+if (window.__liveStatsInterval) clearInterval(window.__liveStatsInterval);
+window.__liveStatsInterval = setInterval(() => pushLiveStats(true), 1000);
+
+window.addEventListener('beforeunload', () => {
+  try {
+    if (sessionRef) {
+      sessionRef.update({
+        status: 'offline',
+        currentExercise: null,
+        lastActive: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
+  } catch(e) {}
+});
+
+/* ---------------- Completion reporting (student side) ---------------- */
+
+function reportCompletion(exerciseKey) {
+  const stats = readLiveStats('lesson-');
+  const payload = {
+    timestamp: new Date().toISOString(),
+    studentId: session.studentId,
+    firstName: session.firstName,
+    lastName: session.lastName,
+    department: session.department || '',
+    exercise: exerciseKey,
+    exerciseLabel: EXERCISE_LABELS[exerciseKey],
+    correct: stats.correct,
+    wrongChar: stats.wrongChar,
+    wrongShift: stats.wrongShift,
+    percent: stats.percent,
+    progress: stats.progress
+  };
+
+  // 1) Save into Firebase so the teacher's realtime dashboard shows it immediately
+  if (sessionRef) {
+    sessionRef.child('results/' + exerciseKey).set({ ...payload, savedAt: firebase.database.ServerValue.TIMESTAMP }).catch(()=>{});
+  }
+
+  // 2) Send to Google Sheet (fire-and-forget; Apps Script Web Apps generally
+  // don't return CORS headers, so we use no-cors and don't read the response)
+  if (GOOGLE_SHEET_WEBAPP_URL && GOOGLE_SHEET_WEBAPP_URL.indexOf('YOUR_DEPLOYMENT_ID') === -1) {
+    fetch(GOOGLE_SHEET_WEBAPP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).catch(err => console.warn('ส่งข้อมูลไป Google Sheet ไม่สำเร็จ:', err));
+  }
+}
+
+
+/* ---------------- Teacher dashboard ---------------- */
+
+let teacherListenerRef = null;
+
+function setupTeacherListener() {
+  if (!fbReady) {
+    document.getElementById('teacherTableBody').innerHTML =
+      '<tr class="empty-row"><td colspan="11">ยังไม่ได้เชื่อมต่อ Firebase</td></tr>';
+    return;
+  }
+
+  // Read the whole sessions collection once, then listen continuously.
+  teacherListenerRef = fbDb.ref(NEW_SESSIONS_PATH);
+  teacherListenerRef.on('value', (snap) => {
+    const data = snap.val() || {};
+    window.__teacherSessions = data;
+    renderTeacherTable(data);
+  });
+
+  // Optional teacher-side connection indicator in the heading.
+  const connectedRef = fbDb.ref('.info/connected');
+  connectedRef.on('value', snap => {
+    const head = document.querySelector('#teacherDashboard .teacher-head h1');
+    if (!head) return;
+    head.textContent = snap.val() === true
+      ? 'แดชบอร์ดครูผู้สอน — ติดตามการพิมพ์แบบเรียลไทม์ ✓'
+      : 'แดชบอร์ดครูผู้สอน — กำลังเชื่อมต่อเรียลไทม์...';
+  });
+}
+
+function teacherApplyFilters() {
+  if (window.__teacherSessions) renderTeacherTable(window.__teacherSessions);
+}
+
+function teacherDetail(r) {
+  const results = r.results || {};
+  const lines = [];
+  LESSON_KEYS.forEach(k => {
+    if (results[k]) {
+      const x = results[k];
+      lines.push(`<div style="padding:8px 0;border-bottom:1px solid #e2e8f0"><b>${escapeHtml(x.exerciseLabel || k)}</b><br>เวลา: ${x.timestamp ? new Date(x.timestamp).toLocaleString('th-TH') : '-'} · ถูก ${x.correct ?? '-'} · ผิดตัว ${x.wrongChar ?? '-'} · ${escapeHtml(x.percent ?? '-')}</div>`);
+    }
+  });
+  return lines.length ? lines.join('') : '<div style="color:#64748b">ยังไม่มีผลที่ส่งเสร็จ</div>';
+}
+
+function showTeacherDetail(id) {
+  const r = (window.__teacherSessions || {})[id];
+  if (!r) return;
+  const box = document.getElementById('teacherDetailModal');
+  document.getElementById('teacherDetailBody').innerHTML = `<h3 style="margin-top:0">${escapeHtml((r.firstName||'')+' '+(r.lastName||''))}</h3><div style="color:#64748b;margin-bottom:10px">${escapeHtml(r.department||'-')} · ${escapeHtml(r.studentId||'-')}</div>${teacherDetail(r)}`;
+  box.style.display = 'flex';
+}
+function closeTeacherDetail(){ document.getElementById('teacherDetailModal').style.display='none'; }
+
+function renderTeacherTable(sessions) {
+  window.__teacherSessions = sessions || {};
+  let rows = Object.entries(sessions || {}).map(([id,r]) => ({...r,__id:id}));
+  const body = document.getElementById('teacherTableBody');
+  const q = (document.getElementById('teacherSearch')?.value || '').trim().toLowerCase();
+  const dept = document.getElementById('teacherDepartment')?.value || '';
+  const date = document.getElementById('teacherDate')?.value || '';
+  const time = document.getElementById('teacherTime')?.value || '';
+  rows = rows.filter(r => {
+    const text = `${r.firstName||''} ${r.lastName||''} ${r.studentId||''}`.toLowerCase();
+    if (q && !text.includes(q)) return false;
+    if (dept && r.department !== dept) return false;
+    if (date || time) {
+      const vals = Object.values(r.results || {});
+      const hit = vals.some(x => {
+        if (!x.timestamp) return false;
+        const d = new Date(x.timestamp);
+        const ds = d.toLocaleDateString('en-CA');
+        const ts = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+        return (!date || ds === date) && (!time || ts === time);
+      });
+      if (!hit) return false;
+    }
+    return true;
+  });
+  const allRows = Object.values(sessions || {});
+  document.getElementById('tsumOnline').textContent = allRows.filter(r => r.status === 'online').length;
+  document.getElementById('tsumTotal').textContent = allRows.length;
+  document.getElementById('tsumDone').textContent = allRows.filter(r => r.results && Object.keys(r.results).length > 0).length;
+  if (!rows.length) { body.innerHTML = '<tr class="empty-row"><td colspan="11">ไม่พบข้อมูลตามเงื่อนไข</td></tr>'; return; }
+  rows.sort((a,b) => ((a.status==='online') !== (b.status==='online')) ? (a.status==='online'?-1:1) : (a.firstName||'').localeCompare(b.firstName||'','th'));
+  body.innerHTML = rows.map(r => {
+    const isOnline=r.status==='online', exKey=r.currentExercise;
+    const exLabel=exKey ? (EXERCISE_LABELS[exKey] || `แบบฝึก ${exKey}`) : 'ยังไม่ได้เริ่ม';
+    const live=(r.liveStats&&exKey)?r.liveStats[exKey]:null;
+    const results=r.results||{};
+    const badges=LESSONS.map(l=>[l.key,l.label]).map(([k,label])=>results[k]?`<span class="done">${label} ✓${escapeHtml(results[k].percent||'')}</span>`:`<span>${label}</span>`).join('');
+    const pctNum=live?parseFloat(live.percent)||0:0;
+    return `<tr><td><span class="status-pill ${isOnline?'online':'offline'}">${isOnline?'● ออนไลน์':'○ ออฟไลน์'}</span><div style="font-size:.68rem;color:#94a3b8;margin-top:2px">${r.lastActive?new Date(r.lastActive).toLocaleTimeString('th-TH'):''}</div></td><td>${escapeHtml(r.department||'-')}</td><td>${escapeHtml((r.firstName||'')+' '+(r.lastName||''))}</td><td>${escapeHtml(r.studentId||'')}</td><td><span class="ex-pill ${exKey?'':'idle'}">${exLabel}</span></td><td>${live?escapeHtml(live.progress):'—'}</td><td>${live?live.correct:'—'}</td><td>${live?live.wrongChar:'—'}</td><td>${live?`<div class="mini-bar-wrap"><div class="mini-bar" style="width:${Math.min(pctNum,100)}%"></div></div><div style="font-size:.75rem;color:#64748b;margin-top:2px">${live.percent}</div>`:'—'}</td><td class="result-badges">${badges}</td><td><button class="btn-restart" style="margin:0;padding:6px 10px;font-size:.8rem" onclick="showTeacherDetail('${escapeHtml(r.__id)}')">ดูรายละเอียด</button></td></tr>`;
+  }).join('');
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function teacherClearAll() {
+  if (!fbReady) return;
+  if (!confirm('ต้องการล้างข้อมูลนักเรียนทั้งหมดในระบบเรียลไทม์หรือไม่? (ผลที่ส่งไป Google Sheet แล้วจะไม่ถูกลบ)')) return;
+  fbDb.ref(NEW_SESSIONS_PATH).remove();
+}
+
+/* ---------------- Boot: resume saved session if any ---------------- */
+
+(function boot() {
+  const saved = loadSavedSession();
+  if (saved && saved.role === 'teacher') {
+    session = saved;
+    enterTeacherApp();
+  } else if (saved && saved.studentId) {
+    session = { ...saved, department: saved.department || '' };
+    enterStudentApp();
+  }
+})();
+
+// Start/continue music whenever the learner explicitly starts/restarts an exercise.
+document.addEventListener('click', (e)=>{
+  const t = e.target;
+  if(!t) return;
+  const label = (t.textContent || '').trim();
+  if(/เริ่ม|ฝึก|ต่อไป|เริ่มใหม่/.test(label)){
+    unlockGameAudio().then(()=>startGameMusic()).catch(()=>{});
+  }
+}, {passive:true});
+
+</script>
+</body>
+</html>
